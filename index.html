@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>TikTok Mini</title>
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+    font-family: sans-serif;
+    background: black;
+    color: white;
+    overflow: hidden;
+    height: 100vh;
+}
+
+#video-container {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    background: black;
+}
+
+video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+/* Пауза */
+.pause-icon {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 65px;
+    opacity: 0;
+    transition: opacity 0.2s;
+    z-index: 9999;
+}
+
+.pause-icon.visible {
+    opacity: 0.85;
+}
+
+/* Инфо */
+.video-info {
+    position: absolute;
+    bottom: 120px;
+    left: 15px;
+    right: 80px;
+    z-index: 20;
+}
+
+.author { display: flex; align-items: center; margin-bottom: 10px; }
+.author-avatar {
+    width: 50px; height: 50px;
+    border-radius: 50%;
+    background: #ff0050;
+    margin-right: 12px;
+    border: 2px solid white;
+}
+.author-name { font-size: 18px; font-weight: bold; }
+
+.video-description { margin: 5px 0; font-size: 16px; }
+.hashtags { color: #00b2ff; margin-top: 5px; }
+
+/* Контролы справа */
+.controls {
+    position: absolute;
+    right: 15px;
+    bottom: 140px;
+    display: flex;
+    flex-direction: column;
+    gap: 28px;
+    z-index: 20;
+}
+
+.control-item { text-align: center; }
+.control-btn {
+    width: 55px;
+    height: 55px;
+    border-radius: 50%;
+    border: none;
+    background: rgba(0,0,0,0.45);
+    color: white;
+    font-size: 22px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.control-count { 
+    margin-top: 5px; 
+    font-size: 14px;
+    opacity: 0.9;
+}
+
+.loading {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 20px;
+    color: #ff0050;
+}
+
+/* Нижнее меню упрощенное */
+.bottom-menu {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: 60px;
+    background: #000;
+    border-top: 1px solid #333;
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    z-index: 30;
+}
+
+.menu-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    text-decoration: none;
+    flex: 1;
+    position: relative;
+}
+
+.menu-item span {
+    font-size: 11px;
+    margin-top: 2px;
+}
+
+.user-avatar {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: #ff0050;
+    margin-bottom: 4px;
+}
+</style>
+</head>
+<body>
+
+<div id="video-container">
+    <div class="loading">Загрузка...</div>
+</div>
+
+<div class="pause-icon" id="pause-icon">
+    <i class="fa-solid fa-pause"></i>
+</div>
+
+<!-- Нижнее меню упрощенное -->
+<div class="bottom-menu">
+    <a href="#" class="menu-item active">
+        <i class="fas fa-home"></i>
+        <span>Главная</span>
+    </a>
+    
+    <a href="/profile" class="menu-item">
+        <div class="user-avatar"></div>
+        <span>Профиль</span>
+    </a>
+</div>
+
+<script>
+let videos = [];
+let currentIndex = 0;
+
+async function loadVideoList() {
+    const res = await fetch("/api/videos_seq");
+    videos = await res.json();
+    videos = videos.filter(v => v && v.id);
+
+    if (videos.length === 0) {
+        document.getElementById("video-container").innerHTML = "<div class='loading'>Нет видео</div>";
+        return;
+    }
+
+    showVideo(0);
+}
+
+async function showVideo(index) {
+    if (videos.length === 0) return;
+
+    if (index < 0) index = videos.length - 1;
+    if (index >= videos.length) index = 0;
+
+    currentIndex = index;
+    const video = videos[index];
+
+    const container = document.getElementById("video-container");
+    container.innerHTML = `
+        <video id="main-video" autoplay muted loop>
+            <source src="${video.video_url}">
+        </video>
+
+        <div class="video-info">
+            <div class="author">
+                <div class="author-avatar"></div>
+                <div class="author-name">@${video.author.username}</div>
+            </div>
+
+            <div class="video-description">${video.description || ""}</div>
+            <div class="hashtags">${video.hashtags.map(t => "#"+t).join(" ")}</div>
+        </div>
+
+        <div class="controls">
+
+            <div class="control-item">
+                <button class="control-btn" onclick="likeVideo('${video.id}')">
+                    <i class="fa-regular fa-heart"></i>
+                </button>
+                <div class="control-count">${video.likes}</div>
+            </div>
+
+            <div class="control-item">
+                <button class="control-btn" onclick="openComments('${video.id}')">
+                    <i class="fa-regular fa-comment"></i>
+                </button>
+                <div class="control-count">${video.comments}</div>
+            </div>
+
+            <div class="control-item">
+                <button class="control-btn" onclick="shareVideo('${video.id}')">
+                    <i class="fa-solid fa-share"></i>
+                </button>
+                <div class="control-count">${video.shares}</div>
+            </div>
+
+            <div class="control-item">
+                <button class="control-btn" id="mute-btn" onclick="toggleMute()">
+                    <i class="fa-solid fa-volume-high"></i>
+                </button>
+            </div>
+
+        </div>
+    `;
+
+    fetch(`/api/videos/${video.id}`);
+
+    const vid = document.getElementById("main-video");
+    vid.onclick = () => togglePlay(vid);
+}
+
+/* ===================== */
+/* --- Видео управление --- */
+function togglePlay(v) {
+    const icon = document.getElementById("pause-icon");
+    if (v.paused) {
+        v.play();
+        icon.classList.remove("visible");
+    } else {
+        v.pause();
+        icon.classList.add("visible");
+        setTimeout(() => icon.classList.remove("visible"), 600);
+    }
+}
+
+function toggleMute() {
+    const v = document.getElementById("main-video");
+    const btnIcon = document.querySelector("#mute-btn i");
+
+    v.muted = !v.muted;
+
+    if (v.muted) btnIcon.className = "fa-solid fa-volume-xmark";
+    else btnIcon.className = "fa-solid fa-volume-high";
+}
+
+async function likeVideo(id) {
+    const res = await fetch(`/api/videos/${id}/like`, { method: "POST" });
+    const data = await res.json();
+    videos[currentIndex].likes = data.likes;
+    showVideo(currentIndex);
+}
+
+function openComments(id) { alert("Комментарии появятся позже"); }
+function shareVideo(id) { navigator.share ? navigator.share({url:window.location.href}) : alert("Поделиться"); }
+
+/* ===================== */
+/* --- Управление клавишами --- */
+document.addEventListener("keydown", e => {
+    if (e.key === "ArrowDown") showVideo(currentIndex + 1);
+    if (e.key === "ArrowUp") showVideo(currentIndex - 1);
+});
+
+/* ===================== */
+/* --- Старт --- */
+loadVideoList();
+</script>
+
+</body>
+</html>
