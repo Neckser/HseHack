@@ -8,85 +8,21 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
 <style>
-* { margin: 0; padding: 0; box-sizing: border-box; }
-body {
-    font-family: sans-serif;
-    background: black;
-    color: white;
-    overflow-x: hidden;
-}
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family:sans-serif; background:black; color:white; overflow-x:hidden; }
 
-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 15px;
-    border-bottom: 1px solid #333;
-}
+header { display:flex; align-items:center; justify-content:space-between; padding:15px; border-bottom:1px solid #333; }
+.avatar { width:70px; height:70px; border-radius:50%; background:#ff0050; margin-right:15px; }
+.user-info { display:flex; align-items:center; }
+.user-name { font-size:22px; font-weight:bold; }
 
-.avatar {
-    width: 70px;
-    height: 70px;
-    border-radius: 50%;
-    background: #ff0050;
-    margin-right: 15px;
-}
+#videos-container { display:flex; flex-direction:column; gap:15px; padding:15px; }
+.video-card { position:relative; width:100%; aspect-ratio:9/16; background:#111; border-radius:10px; overflow:hidden; }
+.video-card video { width:100%; height:100%; object-fit:cover; }
+.controls { position:absolute; right:10px; bottom:10px; display:flex; flex-direction:column; gap:12px; }
+.control-btn { width:45px; height:45px; border-radius:50%; border:none; background:rgba(0,0,0,0.5); color:white; font-size:18px; display:flex; justify-content:center; align-items:center; }
 
-.user-info {
-    display: flex;
-    align-items: center;
-}
-
-.user-name {
-    font-size: 22px;
-    font-weight: bold;
-}
-
-#videos-container {
-    display: flex;
-    flex-direction: column;
-    gap: 15px;
-    padding: 15px;
-}
-
-.video-card {
-    position: relative;
-    width: 100%;
-    aspect-ratio: 9/16;
-    background: #111;
-    border-radius: 10px;
-    overflow: hidden;
-}
-
-.video-card video {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-}
-
-.controls {
-    position: absolute;
-    right: 10px;
-    bottom: 10px;
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-}
-
-.control-btn {
-    width: 45px;
-    height: 45px;
-    border-radius: 50%;
-    border: none;
-    background: rgba(0,0,0,0.5);
-    color: white;
-    font-size: 18px;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-}
-
-/* Нижнее меню */
+/* Нижнее меню одинаково с index.html */
 .bottom-menu {
     position: fixed;
     bottom: 0;
@@ -98,35 +34,25 @@ header {
     display: flex;
     justify-content: space-around;
     align-items: center;
-    z-index: 10;
+    z-index: 30;
 }
-
 .menu-item {
     display: flex;
     flex-direction: column;
     align-items: center;
+    justify-content: center;
     color: white;
     text-decoration: none;
     flex: 1;
 }
-
 .menu-item i {
     font-size: 24px;
     margin-bottom: 4px;
 }
+.menu-item span { font-size:11px; }
+.menu-item.active { color:#ff0050; }
 
-.menu-item span {
-    font-size: 11px;
-}
-
-.menu-item.active {
-    color: #ff0050;
-}
-
-.loading {
-    text-align: center;
-    margin-top: 50px;
-}
+.loading { text-align:center; margin-top:50px; }
 </style>
 </head>
 <body>
@@ -140,13 +66,12 @@ header {
     </div>
 </header>
 
-<h2 style="text-align:center; margin: 15px 0;">Лайкнутые видео</h2>
+<h2 style="text-align:center; margin:15px 0;">Лайкнутые видео</h2>
 
 <div id="videos-container">
     <div class="loading">Загрузка...</div>
 </div>
 
-<!-- Нижнее меню -->
 <div class="bottom-menu">
     <a href="/" class="menu-item">
         <i class="fas fa-home"></i>
@@ -159,56 +84,29 @@ header {
 </div>
 
 <script>
-let userId = 1; // демо-пользователь
-let likedVideos = [];
+let userId = 1;
 
-// ========================
-// Загрузка лайкнутых видео
-// ========================
 async function loadLikedVideos() {
-    const res = await fetch("/api/videos");
-    const allVideos = await res.json();
-
-    // фильтруем только те, что лайкнул пользователь
-    likedVideos = allVideos.filter(v => v.liked_by_user); // backend должен отдавать это поле
-    showVideoList(likedVideos);
-}
-
-function showVideoList(list) {
+    const res = await fetch(`/api/videos/liked?user_id=${userId}`);
+    const likedVideos = await res.json();
     const container = document.getElementById("videos-container");
     container.innerHTML = "";
-    if(list.length === 0){
+
+    if (!likedVideos.length) {
         container.innerHTML = "<div class='loading'>Вы пока не лайкнули ни одного видео</div>";
         return;
     }
 
-    list.forEach(video => {
+    likedVideos.forEach(video => {
         const card = document.createElement("div");
         card.className = "video-card";
         card.innerHTML = `
             <video src="${video.video_url}" autoplay loop muted></video>
-            <div class="controls">
-                <button class="control-btn" onclick="openComments('${video.id}')">
-                    <i class="fa-regular fa-comment"></i>
-                </button>
-                <button class="control-btn" onclick="shareVideo('${video.id}')">
-                    <i class="fa-solid fa-share"></i>
-                </button>
-            </div>
         `;
         container.appendChild(card);
     });
 }
 
-// ========================
-// Кнопки управления видео
-// ========================
-function openComments(id){ alert("Комментарии появятся позже"); }
-function shareVideo(id){ navigator.share ? navigator.share({url:window.location.href}) : alert("Поделиться"); }
-
-// ========================
-// Старт
-// ========================
 document.getElementById("username").textContent = "@hacker";
 loadLikedVideos();
 </script>
